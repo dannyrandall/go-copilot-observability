@@ -21,9 +21,9 @@ type Movie struct {
 }
 
 func main() {
-	table, ok := os.LookupEnv("DDB_MOVIES_TABLE")
+	table, ok := os.LookupEnv("MOVIES_NAME")
 	if !ok {
-		log.Fatalf("DDB_MOVIES_TABLE is not set")
+		log.Fatalf("MOVIES_NAME is not set")
 	}
 
 	ddbTable := aws.String(table)
