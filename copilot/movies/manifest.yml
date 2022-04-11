@@ -26,9 +26,9 @@ memory: 512    # Amount of memory in MiB used by the task.
 count: 1       # Number of tasks that should be running in your service.
 exec: true     # Enable running commands in your container.
 
-sidecars:
-  xray:
-    image: amazon/aws-xray-daemon
+# Enable tracing for the service.
+observability:
+  tracing: awsxray
 
 # Optional fields for more advanced use-cases.
 #
