@@ -1,22 +1,19 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-xray-sdk-go/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/dannyrandall/movies/internal/copilot"
 	"github.com/dannyrandall/movies/internal/handlers"
 )
-
-type Movie struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Year  int    `json:"year"`
-}
 
 func main() {
 	svcName := copilot.ServiceName()
@@ -27,11 +24,16 @@ func main() {
 	}
 	log.Printf("Using %q as the movies table", moviesTable)
 
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	ddb := dynamodb.New(sess)
-	xray.AWS(ddb.Client)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		log.Fatalf("unable to load aws config: %s", err)
+	}
+
+	awsv2.AWSV2Instrumentor(&cfg.APIOptions)
+	ddb := dynamodb.NewFromConfig(cfg)
 
 	movieHandler := &handlers.Movie{
 		Dynamo:      ddb,
@@ -39,11 +41,6 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("No handler registered for path %q", r.URL.String())
-		http.NotFound(w, r)
-	})
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)

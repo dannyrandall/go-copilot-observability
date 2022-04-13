@@ -8,14 +8,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/dannyrandall/movies/internal/movies"
 )
 
 type Movie struct {
-	Dynamo      *dynamodb.DynamoDB
+	Dynamo      *dynamodb.Client
 	MoviesTable string
 }
 
@@ -37,12 +38,10 @@ func (m *Movie) getMovie(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	log.Printf("Getting movie %q", id)
 
-	result, err := m.Dynamo.GetItemWithContext(ctx, &dynamodb.GetItemInput{
+	result, err := m.Dynamo.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(m.MoviesTable),
-		Key: map[string]*dynamodb.AttributeValue{
-			"id": {
-				S: aws.String(id),
-			},
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
 		},
 	})
 	switch {
@@ -55,7 +54,7 @@ func (m *Movie) getMovie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var movie movies.Movie
-	if err := dynamodbattribute.UnmarshalMap(result.Item, &movie); err != nil {
+	if err := attributevalue.UnmarshalMap(result.Item, &movie); err != nil {
 		http.Error(w, fmt.Sprintf("unmarshal result: %s", err), http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +83,7 @@ func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
 	movie.ID = movies.NewID()
 	log.Printf("Creating movie %+v", movie)
 
-	av, err := dynamodbattribute.MarshalMap(movie)
+	av, err := attributevalue.MarshalMap(movie)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("marshal movie: %s", err), http.StatusBadRequest)
 		return
@@ -95,7 +94,7 @@ func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
 		TableName: aws.String(m.MoviesTable),
 	}
 
-	_, err = m.Dynamo.PutItemWithContext(ctx, input)
+	_, err = m.Dynamo.PutItem(ctx, input)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("put item: %s", err), http.StatusBadRequest)
 		return
