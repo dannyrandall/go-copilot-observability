@@ -62,12 +62,12 @@ func main() {
 func otelSetup(ctx context.Context) {
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithDialOption(grpc.WithBlock()))
 	if err != nil {
-		log.Fatalf("failed to create otel trace exporter: %v", err)
+		log.Fatalf("unable to create otel trace exporter: %v", err)
 	}
 
 	ecsResource, err := ecs.NewResourceDetector().Detect(ctx)
 	if err != nil {
-		log.Fatalf("%s: %v", "failed to create new OTLP trace exporter", err)
+		log.Fatalf("%s: %v", "unable to create new OTLP trace exporter", err)
 	}
 
 	/*
