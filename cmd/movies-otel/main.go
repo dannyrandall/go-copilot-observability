@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/dannyrandall/movies/internal/copilot"
 	"github.com/dannyrandall/movies/internal/handlers"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
@@ -16,7 +17,9 @@ import (
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"google.golang.org/grpc"
 )
 
@@ -62,24 +65,25 @@ func main() {
 func otelSetup(ctx context.Context) {
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithDialOption(grpc.WithBlock()))
 	if err != nil {
-		log.Fatalf("unable to create otel trace exporter: %v", err)
+		log.Fatalf("unable to create otel trace exporter: %s", err)
 	}
 
 	ecsResource, err := ecs.NewResourceDetector().Detect(ctx)
 	if err != nil {
-		log.Fatalf("%s: %v", "unable to create new OTLP trace exporter", err)
+		log.Fatalf("unable to create otel trace exporter: %s", err)
 	}
 
-	/*
-		r, err := resource.Merge(
-			ecsResource,
-			resource.NewWithAttributes(semconv.SchemaURL, semconv.ServiceNameKey.String(copilot.ServiceName())),
-		)
-	*/
+	r, err := resource.Merge(
+		ecsResource,
+		resource.NewWithAttributes(ecsResource.SchemaURL(), semconv.ContainerNameKey.String(copilot.ServiceName())),
+	)
+	if err != nil {
+		log.Fatalf("unable to merge resource: %s", err)
+	}
 
 	idg := xray.NewIDGenerator()
 	tp := trace.NewTracerProvider(
-		trace.WithResource(ecsResource),
+		trace.WithResource(r),
 		trace.WithSampler(trace.AlwaysSample()),
 		trace.WithBatcher(exporter),
 		trace.WithIDGenerator(idg),
