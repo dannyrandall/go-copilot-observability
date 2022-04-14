@@ -6,7 +6,7 @@ WORKDIR /go/src/app
 COPY . .
 
 RUN go mod download
-RUN CGO_ENABLED=0 go build -o /go/bin/app cmd/movies-xray/*.go
+RUN CGO_ENABLED=0 go build -o /go/bin/app cmd/movies/*.go
 
 FROM gcr.io/distroless/static
 

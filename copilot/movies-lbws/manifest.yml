@@ -3,23 +3,21 @@
 #  https://aws.github.io/copilot-cli/docs/manifest/lb-web-service/
 
 # Your service name will be used in naming your resources like log groups, ECS services, etc.
-name: movies-otel
+name: movies-lbws
 type: Load Balanced Web Service
 
 # Distribute traffic to your service.
 http:
   # Requests to this path will be forwarded to your service.
   # To match all requests you can use the "/" path.
-  path: 'api/otel'
+  path: 'movies/api'
 
   # You can specify a custom health check path. The default is "/".
   healthcheck: '/healthz'
 
 # Configuration for your containers and service.
 image:
-  build:
-    dockerfile: ./cmd/movies-otel/dockerfile
-    context: ./
+  build: Dockerfile
   port: 8080
 
 cpu: 256       # Number of CPU units for the task.

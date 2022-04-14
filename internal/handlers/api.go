@@ -21,6 +21,8 @@ type Movie struct {
 }
 
 func (m *Movie) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Handling request: %s %s", r.Method, r.URL.String())
+
 	switch r.Method {
 	case http.MethodGet:
 		m.getMovie(w, r)
