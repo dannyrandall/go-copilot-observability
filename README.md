@@ -6,16 +6,16 @@ This repo contains a simple instrumented [go](https://go.dev/) service along wit
 
 # Deploy
 1. Clone this repo.
-1. If you don't already have a copilot application, create one:
+1. Deploy this service using Copilot!
 ```bash
 copilot init --app copilot-playground --name movies-lbws --deploy # TODO: do i need the type?
 ```
 
 # Generate and View Traces
 Now that you have the movies service deployed, let's generate some traces! After deploying your service, copilot gives you a URL to access your service at. Copy that URL, and replace `$MOVIES_SERVICE_BASE_URL` with it in the commands below.
-These endpoints are instrumented using the Open Telemetry SDK, but you can change the `otel` part of the endpoint to `xray` to generate traces using the X-Ray SDK instead.
+These endpoints are instrumented using the Open Telemetry SDK, but you can change the `/otel` part of the endpoint to `/xray` to use endpoints instrumented with the X-Ray SDK instead.
 
-_Note: X-Ray SDK traces are not supported in Request-Driven Web Services_
+_Note: Using the X-Ray SDK is not supported in Request-Driven Web Services_
 
 First, let's insert [a movie](https://www.imdb.com/title/tt6751668/) into our database:
 ```bash
