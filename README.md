@@ -19,12 +19,12 @@ _Note: X-Ray SDK traces are not supported in Request-Driven Web Services_
 
 First, let's insert [a movie](https://www.imdb.com/title/tt6751668/) into our database:
 ```bash
-curl -v -X POST $MOVIES_SERVICE_BASE_URL/movies/api/otel/movie -d '{"title": "Parasite", "year": 2019}'
+curl -X POST '$MOVIES_SERVICE_BASE_URL/movies/api/otel/movie' -d '{"title": "Parasite", "year": 2019}'
 ```
 
 In the response JSON, there should be an `id` field. Replace the below `MOVIE_ID` with that, and let's query the movie we just inserted:
 ```bash
-curl -v -X GET $MOVIES_SERVICE_BASE_URL/movies/api/otel/movie?id=$MOVIE_ID
+curl -X GET '$MOVIES_SERVICE_BASE_URL/movies/api/otel/movie?id=$MOVIE_ID'
 ```
 
 Sweet! Now we should have some traces to view in the AWS Console. After logging in, go to CloudWatch and click on the _Service Map_ in the sidebar, under _X-Ray traces_. It should look something like this:

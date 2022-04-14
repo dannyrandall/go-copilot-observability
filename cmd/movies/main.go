@@ -98,7 +98,7 @@ func otelSetup(ctx context.Context, svcName string) error {
 
 	r, err := resource.Merge(
 		ecsResource,
-		resource.NewWithAttributes(ecsResource.SchemaURL(), semconv.ContainerNameKey.String(svcName)),
+		resource.NewWithAttributes(ecsResource.SchemaURL(), semconv.ServiceNameKey.String(svcName)),
 	)
 	if err != nil {
 		return fmt.Errorf("merge resources: %s", err)
