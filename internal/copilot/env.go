@@ -25,3 +25,15 @@ func ServiceName(fallback string) string {
 
 	return fmt.Sprintf("%s-%s-%s", app, env, svc)
 }
+
+func Environment() string {
+	return os.Getenv("COPILOT_ENVIRONMENT_NAME")
+}
+
+func App() string {
+	return os.Getenv("COPILOT_APPLICATION_NAME")
+}
+
+func QueueURI() string {
+	return os.Getenv("COPILOT_QUEUE_URI")
+}
