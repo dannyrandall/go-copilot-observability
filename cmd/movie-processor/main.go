@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/dannyrandall/movies/internal/copilot"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	otelxray "go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -33,12 +35,16 @@ func main() {
 
 	otelaws.AppendMiddlewares(&cfg.APIOptions)
 
-	q, err := NewMovieQueue(context.Background(), cfg, copilot.CreateMovieQueueName())
-	if err != nil {
-		log.Fatalf("unable to create movie queue: %s", err)
+	q := &MovieQueue{
+		SQS:            sqs.NewFromConfig(cfg),
+		HTTP:           otelhttp.DefaultClient,
+		Tracer:         otel.Tracer(""),
+		QueueName:      fmt.Sprintf("%s-%s-createMovie", copilot.App(), copilot.Environment()),
+		QueueURL:       copilot.QueueURI(),
+		CreateMovieURL: fmt.Sprintf("http://movies-backend-service.%s.%s.local:8080/movies/api/otel/movie", copilot.Environment(), copilot.App()),
 	}
 
-	q.CreateMovieURL = fmt.Sprintf("movies-backend-service.%s.%s.local:8080/movies/api/otel/movie", copilot.Environment(), copilot.App())
+	log.Printf("Waiting for events from %s", q.QueueURL)
 
 	if err := q.ReceiveAndProcess(context.Background()); err != nil {
 		log.Fatalf("unable to receive and process: %s", err)
