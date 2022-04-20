@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/dannyrandall/movies/internal/movies"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type MovieHandler struct {
@@ -21,20 +23,23 @@ type MovieHandler struct {
 }
 
 func (m *MovieHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	span := trace.SpanFromContext(r.Context())
+	id := span.SpanContext().SpanID().String()
+
+	log := log.New(os.Stderr, fmt.Sprintf("[%s] ", id), log.LstdFlags)
 	log.Printf("Handling request: %s %s", r.Method, r.URL.String())
 
 	switch r.Method {
 	case http.MethodGet:
-		m.getMovie(w, r)
+		m.getMovie(log, w, r)
 	case http.MethodPost:
-		m.createMovie(w, r)
+		m.createMovie(log, w, r)
 	default:
-		log.Printf("not found???")
 		http.NotFound(w, r)
 	}
 }
 
-func (m *MovieHandler) getMovie(w http.ResponseWriter, r *http.Request) {
+func (m *MovieHandler) getMovie(log *log.Logger, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -49,16 +54,16 @@ func (m *MovieHandler) getMovie(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case err != nil:
-		httpError(w, http.StatusInternalServerError, "get item: %s", err)
+		httpError(w, http.StatusInternalServerError, log, "get item: %s", err)
 		return
 	case result.Item == nil:
-		httpError(w, http.StatusNotFound, "no movie found with id %q", id)
+		httpError(w, http.StatusNotFound, log, "no movie found with id %q", id)
 		return
 	}
 
 	var movie movies.Movie
 	if err := attributevalue.UnmarshalMap(result.Item, &movie); err != nil {
-		httpError(w, http.StatusInternalServerError, "unmarshal result: %s", err)
+		httpError(w, http.StatusInternalServerError, log, "unmarshal result: %s", err)
 		return
 	}
 
@@ -71,7 +76,7 @@ func (m *MovieHandler) getMovie(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (m *MovieHandler) createMovie(w http.ResponseWriter, r *http.Request) {
+func (m *MovieHandler) createMovie(log *log.Logger, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -79,7 +84,7 @@ func (m *MovieHandler) createMovie(w http.ResponseWriter, r *http.Request) {
 
 	var movie movies.Movie
 	if err := dec.Decode(&movie); err != nil {
-		httpError(w, http.StatusBadRequest, "decode movie %s", err)
+		httpError(w, http.StatusBadRequest, log, "decode movie %s", err)
 		return
 	}
 
@@ -88,7 +93,7 @@ func (m *MovieHandler) createMovie(w http.ResponseWriter, r *http.Request) {
 
 	av, err := attributevalue.MarshalMap(movie)
 	if err != nil {
-		httpError(w, http.StatusBadRequest, "marshal movie: %s", err)
+		httpError(w, http.StatusBadRequest, log, "marshal movie: %s", err)
 		return
 	}
 
@@ -99,7 +104,7 @@ func (m *MovieHandler) createMovie(w http.ResponseWriter, r *http.Request) {
 
 	_, err = m.Dynamo.PutItem(ctx, input)
 	if err != nil {
-		httpError(w, http.StatusBadRequest, "put item: %s", err)
+		httpError(w, http.StatusBadRequest, log, "put item: %s", err)
 		return
 	}
 
@@ -112,8 +117,8 @@ func (m *MovieHandler) createMovie(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func httpError(w http.ResponseWriter, code int, format string, a ...any) {
+func httpError(w http.ResponseWriter, code int, log *log.Logger, format string, a ...any) {
 	str := fmt.Sprintf(format, a...)
 	http.Error(w, str, code)
-	fmt.Printf("returning error: %s", str)
+	log.Printf("returning error: %s", str)
 }

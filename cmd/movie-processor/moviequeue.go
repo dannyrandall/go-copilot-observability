@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -96,7 +97,12 @@ func (q *MovieQueue) processMessage(ctx context.Context, msg types.Message) erro
 }
 
 func (q *MovieQueue) createMovie(ctx context.Context, movie movies.Movie) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, q.CreateMovieURL, nil)
+	data, err := json.Marshal(movie)
+	if err != nil {
+		return fmt.Errorf("encode movie: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, q.CreateMovieURL, bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
