@@ -1,4 +1,4 @@
-package handlers
+package main
 
 import (
 	"context"
@@ -15,12 +15,12 @@ import (
 	"github.com/dannyrandall/movies/internal/movies"
 )
 
-type Movie struct {
+type MovieHandler struct {
 	Dynamo      *dynamodb.Client
 	MoviesTable string
 }
 
-func (m *Movie) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *MovieHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Handling request: %s %s", r.Method, r.URL.String())
 
 	switch r.Method {
@@ -29,11 +29,12 @@ func (m *Movie) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		m.createMovie(w, r)
 	default:
+		log.Printf("not found???")
 		http.NotFound(w, r)
 	}
 }
 
-func (m *Movie) getMovie(w http.ResponseWriter, r *http.Request) {
+func (m *MovieHandler) getMovie(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -48,16 +49,16 @@ func (m *Movie) getMovie(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case err != nil:
-		http.Error(w, fmt.Sprintf("get item: %s", err), http.StatusInternalServerError)
+		httpError(w, http.StatusInternalServerError, "get item: %s", err)
 		return
 	case result.Item == nil:
-		w.WriteHeader(http.StatusNotFound)
+		httpError(w, http.StatusNotFound, "no movie found with id %q", id)
 		return
 	}
 
 	var movie movies.Movie
 	if err := attributevalue.UnmarshalMap(result.Item, &movie); err != nil {
-		http.Error(w, fmt.Sprintf("unmarshal result: %s", err), http.StatusInternalServerError)
+		httpError(w, http.StatusInternalServerError, "unmarshal result: %s", err)
 		return
 	}
 
@@ -70,7 +71,7 @@ func (m *Movie) getMovie(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
+func (m *MovieHandler) createMovie(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -78,7 +79,7 @@ func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
 
 	var movie movies.Movie
 	if err := dec.Decode(&movie); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httpError(w, http.StatusBadRequest, "decode movie %s", err)
 		return
 	}
 
@@ -87,7 +88,7 @@ func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
 
 	av, err := attributevalue.MarshalMap(movie)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("marshal movie: %s", err), http.StatusBadRequest)
+		httpError(w, http.StatusBadRequest, "marshal movie: %s", err)
 		return
 	}
 
@@ -98,7 +99,7 @@ func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
 
 	_, err = m.Dynamo.PutItem(ctx, input)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("put item: %s", err), http.StatusBadRequest)
+		httpError(w, http.StatusBadRequest, "put item: %s", err)
 		return
 	}
 
@@ -109,4 +110,10 @@ func (m *Movie) createMovie(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(movie); err != nil {
 		log.Printf("error encoding movie %q: %s", movie.ID, err)
 	}
+}
+
+func httpError(w http.ResponseWriter, code int, format string, a ...any) {
+	str := fmt.Sprintf(format, a...)
+	http.Error(w, str, code)
+	fmt.Printf("returning error: %s", str)
 }

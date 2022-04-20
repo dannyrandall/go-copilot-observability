@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-xray-sdk-go/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/dannyrandall/movies/internal/copilot"
-	"github.com/dannyrandall/movies/internal/handlers"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -64,7 +63,7 @@ func main() {
 		})
 	} else {
 		otelaws.AppendMiddlewares(&otelAWSCfg.APIOptions)
-		mux.Handle("/movies/api/otel/movie", otelhttp.NewHandler(&handlers.Movie{
+		mux.Handle("/movies/api/otel/movie", otelhttp.NewHandler(&MovieHandler{
 			Dynamo:      dynamodb.NewFromConfig(otelAWSCfg),
 			MoviesTable: moviesTable,
 		}, "movie"))
@@ -73,7 +72,7 @@ func main() {
 	// X-Ray SDK & endpoint setup
 	xrayAWSCfg := cfg.Copy()
 	awsv2.AWSV2Instrumentor(&xrayAWSCfg.APIOptions)
-	mux.Handle("/movies/api/xray/movie", xray.Handler(xray.NewFixedSegmentNamer(svcName), &handlers.Movie{
+	mux.Handle("/movies/api/xray/movie", xray.Handler(xray.NewFixedSegmentNamer(svcName), &MovieHandler{
 		Dynamo:      dynamodb.NewFromConfig(xrayAWSCfg),
 		MoviesTable: moviesTable,
 	}))
