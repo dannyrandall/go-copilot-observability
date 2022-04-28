@@ -57,12 +57,6 @@ func (q *MovieQueue) ReceiveAndProcess(ctx context.Context) error {
 	}
 }
 
-func spanErrorf(span trace.Span, format string, a ...any) error {
-	err := fmt.Errorf(format, a...)
-	span.SetStatus(codes.Error, err.Error())
-	return err
-}
-
 func (q *MovieQueue) recieveMessages(ctx context.Context) ([]types.Message, error) {
 	res, err := q.SQS.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(q.QueueURL),
@@ -126,5 +120,11 @@ func (q *MovieQueue) deleteMessage(ctx context.Context, receiptHandle *string) e
 		ReceiptHandle: receiptHandle,
 	})
 
+	return err
+}
+
+func spanErrorf(span trace.Span, format string, a ...any) error {
+	err := fmt.Errorf(format, a...)
+	span.SetStatus(codes.Error, err.Error())
 	return err
 }
