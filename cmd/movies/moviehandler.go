@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/dannyrandall/movies/internal/movies"
+	"github.com/dannyrandall/movies/internal/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -24,9 +25,8 @@ type MovieHandler struct {
 
 func (m *MovieHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span := trace.SpanFromContext(r.Context())
-	id := span.SpanContext().SpanID().String()
 
-	log := log.New(os.Stderr, fmt.Sprintf("[%s] ", id), log.LstdFlags)
+	log := log.New(os.Stderr, fmt.Sprintf("AWS-XRAY-TRACE-ID: %s - ", otel.XRayTraceID(span)), log.LstdFlags|log.Lmsgprefix)
 	log.Printf("Handling request: %s %s", r.Method, r.URL.String())
 
 	switch r.Method {
