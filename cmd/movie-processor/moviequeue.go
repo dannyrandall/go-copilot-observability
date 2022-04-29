@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/dannyrandall/movies/internal/movies"
+	"github.com/dannyrandall/movies/internal/otel"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
@@ -36,13 +39,15 @@ func (q *MovieQueue) ReceiveAndProcess(ctx context.Context) error {
 			trace.WithAttributes(semconv.MessagingDestinationKindQueue))
 		defer span.End()
 
-		msgs, err := q.recieveMessages(ctx)
+		log := log.New(os.Stderr, fmt.Sprintf("AWS-XRAY-TRACE-ID: %s - ", otel.XRayTraceID(span)), log.LstdFlags|log.Lmsgprefix)
+
+		msgs, err := q.recieveMessages(ctx, log)
 		if err != nil {
 			return spanErrorf(span, "receive message: %w", err)
 		}
 
 		for _, msg := range msgs {
-			if err := q.processMessage(ctx, msg); err != nil {
+			if err := q.processMessage(ctx, log, msg); err != nil {
 				return spanErrorf(span, "process message %q: %w", aws.ToString(msg.MessageId), err)
 			}
 		}
@@ -54,10 +59,13 @@ func (q *MovieQueue) ReceiveAndProcess(ctx context.Context) error {
 		if err := recvAndProcess(ctx); err != nil {
 			log.Printf("error: %s", err)
 		}
+
+		// Only run once a minute to reduce empty traces
+		time.Sleep(1 * time.Minute)
 	}
 }
 
-func (q *MovieQueue) recieveMessages(ctx context.Context) ([]types.Message, error) {
+func (q *MovieQueue) recieveMessages(ctx context.Context, log *log.Logger) ([]types.Message, error) {
 	res, err := q.SQS.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(q.QueueURL),
 		MaxNumberOfMessages: 1,
@@ -70,7 +78,7 @@ func (q *MovieQueue) recieveMessages(ctx context.Context) ([]types.Message, erro
 	return res.Messages, nil
 }
 
-func (q *MovieQueue) processMessage(ctx context.Context, msg types.Message) error {
+func (q *MovieQueue) processMessage(ctx context.Context, log *log.Logger, msg types.Message) error {
 	ctx, span := q.Tracer.Start(ctx, "processMessage", trace.WithAttributes(semconv.MessagingMessageIDKey.String(aws.ToString(msg.MessageId))))
 	defer span.End()
 
@@ -79,9 +87,13 @@ func (q *MovieQueue) processMessage(ctx context.Context, msg types.Message) erro
 		return spanErrorf(span, "unmarshal movie: %w", err)
 	}
 
+	log.Printf("Creating movie: %+v", movie)
+
 	if err := q.createMovie(ctx, movie); err != nil {
 		return spanErrorf(span, "create movie: %w", err)
 	}
+
+	log.Printf("Deleting message: %s", aws.ToString(msg.ReceiptHandle))
 
 	if err := q.deleteMessage(ctx, msg.ReceiptHandle); err != nil {
 		return spanErrorf(span, "delete message: %w", err)
