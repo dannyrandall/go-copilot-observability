@@ -8,7 +8,7 @@ This repo contains a simple instrumented [go](https://go.dev/) service along wit
 1. Clone this repo.
 1. Deploy this service using Copilot!
 ```bash
-copilot init --app copilot-playground --name movies-lbws --deploy
+copilot init --app copilot-playground --name movies-lbws --type "Load Balanced Web Service" --deploy
 ```
 
 # Generate and View Traces
